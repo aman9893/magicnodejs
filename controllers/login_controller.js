@@ -255,19 +255,16 @@ module.exports.controller = (app, io, socket_list) => {
         })
     })
 
-    app.post('/api/app/delivery_address', (req, res) => {
+    app.get('/api/app/delivery_address', (req, res) => {
         helper.Dlog(req.body);
-        var reqObj = req.body;
         checkAccessToken(req.headers, res, (userObj) => {
-
             db.query("SELECT * FROM `address_detail` WHERE `user_id` = ? AND `status` = 1 ", [userObj.user_id], (err, result) => {
                 if (err) {
                     helper.ThrowHtmlError(err, res);
                     return
                 }
-
                 res.json({
-                    "status": "1",
+                    "status": 1,
                     "payload": result,
                     "message": msg_success
                 })
