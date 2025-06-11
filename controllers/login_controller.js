@@ -255,23 +255,29 @@ module.exports.controller = (app, io, socket_list) => {
         })
     })
 
-    app.get('/api/app/delivery_address', (req, res) => {
-        helper.Dlog(req.body);
-        checkAccessToken(req.headers, res, (userObj) => {
-            db.query("SELECT * FROM `address_detail` WHERE `user_id` = ? AND `status` = 1 ", [userObj.user_id], (err, result) => {
+app.get('/api/app/delivery_address', (req, res) => {
+    helper.Dlog(req.body);
+    checkAccessToken(req.headers, res, (userObj) => {
+        db.query(
+            `SELECT ad.*, ud.name AS user_name, ud.mobile AS user_mobile
+             FROM address_detail ad
+             JOIN user_detail ud ON ad.user_id = ud.user_id
+             WHERE ad.user_id = ? AND ad.status = 1`,
+            [userObj.user_id],
+            (err, result) => {
                 if (err) {
                     helper.ThrowHtmlError(err, res);
-                    return
+                    return;
                 }
                 res.json({
                     "status": 1,
                     "payload": result,
                     "message": msg_success
-                })
-            })
-
-        })
-    })
+                });
+            }
+        );
+    });
+});
     // ------------------------------------------order-------------------------------------------------------------------------------
 
     app.post('/api/app/userAddorder', (req, res) => {
