@@ -1,5 +1,6 @@
 var db = require('./../helpers/db_helpers')
 var helper = require('./../helpers/helpers')
+const nodemailer = require('nodemailer'); // Add this at the top of your file
 
 module.exports.controller = (app, io, socket_list) => {
 
@@ -530,45 +531,67 @@ app.get('/api/app/delivery_address', (req, res) => {
         }, "1")
     })
 
-    app.post('/api/app/forgot_password_request', (req, res) => {
-        helper.Dlog(req.body);
-        var reqObj = req.body
+ app.post('/api/app/forgot_password_request', (req, res) => {
+    helper.Dlog(req.body);
+    var reqObj = req.body
 
-        helper.CheckParameterValid(res, reqObj, ["email"], () => {
-            db.query("SELECT `user_id` FROM `user_detail` WHERE `email` = ? ", [reqObj.email], (err, result) => {
-                if (err) {
-                    helper.ThrowHtmlError(err, res)
-                    return
-                }
+    helper.CheckParameterValid(res, reqObj, ["email"], () => {
+        db.query("SELECT `user_id` FROM `user_detail` WHERE `email` = ? ", [reqObj.email], (err, result) => {
+            if (err) {
+                helper.ThrowHtmlError(err, res)
+                return
+            }
 
-                if (result.length > 0) {
-                    var reset_code = helper.createNumber()
-                    db.query("UPDATE `user_detail` SET `reset_code` = ? WHERE `user_id` = ? ", [reset_code, result[0].user_id], (err, uResult) => {
-                        if (err) {
-                            helper.ThrowHtmlError(err, res)
-                            return
-                        }
+            if (result.length > 0) {
+                var reset_code = helper.createNumber()
+                db.query("UPDATE `user_detail` SET `reset_code` = ? WHERE `user_id` = ? ", [reset_code, result[0].user_id], (err, uResult) => {
+                    if (err) {
+                        helper.ThrowHtmlError(err, res)
+                        return
+                    }
 
+                    if (uResult.affectedRows > 0) {
+                        // Send reset code email
+                        let transporter = nodemailer.createTransport({
+                            service: 'gmail', // or your email provider
+                            auth: {
+                                user: 'masalaMagic', // replace with your email
+                                pass: 'xnrpvnjnqqywyrqx'    // replace with your email password or app password
+                            }
+                        });
 
-                        if (uResult.affectedRows > 0) {
-                            res.json({ "status": "1", "message": msg_success })
-                        } else {
-                            res.json({
-                                "status": "0",
-                                "message": msg_fail
-                            })
-                        }
-                    })
+                        let mailOptions = {
+                            from: 'masalamagickhurai@gmail.com',
+                            to: reqObj.email,
+                            subject: 'Password Reset Code',
+                            text: `Your password reset code is: ${reset_code}`
+                        };
 
-                } else {
-                    res.json({
-                        "status": "0",
-                        "message": "user not exits"
-                    })
-                }
-            })
+                        transporter.sendMail(mailOptions, function(error, info){
+                            if (error) {
+                                console.log(error);
+                                res.json({ "status": "0", "message": "Failed to send email" });
+                            } else {
+                                res.json({ "status": "1", "message": msg_success });
+                            }
+                        });
+                    } else {
+                        res.json({
+                            "status": "0",
+                            "message": msg_fail
+                        })
+                    }
+                })
+
+            } else {
+                res.json({
+                    "status": "0",
+                    "message": "user not exits"
+                })
+            }
         })
     })
+})
 
     app.post('/api/app/forgot_password_verify', (req, res) => {
         helper.Dlog(req.body);
