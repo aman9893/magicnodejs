@@ -369,9 +369,9 @@ app.get('/api/app/delivery_address', (req, res) => {
         helper.Dlog(req.body);
         var reqObj = req.body;
 
-        helper.CheckParameterValid(res, reqObj, ["email", "password", "dervice_token"], () => {
+        helper.CheckParameterValid(res, reqObj, ["email", "password"], () => {
             var auth_token = helper.createRequestToken();
-            db.query("UPDATE `user_detail` SET `auth_token`= ?,`dervice_token`=?,`modify_date`= NOW() WHERE `user_type` = ? AND `email` = ? AND `password` = ? AND `status` = ?", [auth_token, reqObj.dervice_token, "1", reqObj.email, reqObj.password, "1"], (err, result) => {
+            db.query("UPDATE `user_detail` SET `auth_token`= ?,`modify_date`= NOW() WHERE `user_type` = ? AND `email` = ? AND `password` = ? AND `status` = ?", [auth_token, "1", reqObj.email, reqObj.password, "1"], (err, result) => {
 
                 if (err) {
                     helper.ThrowHtmlError(err, res);
@@ -406,7 +406,7 @@ app.get('/api/app/delivery_address', (req, res) => {
         helper.Dlog(req.body);
         var reqObj = req.body;
 
-        helper.CheckParameterValid(res, reqObj, ["username", "email", "password", "dervice_token", "mobile"], () => {
+        helper.CheckParameterValid(res, reqObj, ["username", "email", "password", "mobile"], () => {
 
             db.query('SELECT `user_id`, `status` FROM `user_detail` WHERE `email` = ? ', [reqObj.email], (err, result) => {
 
@@ -420,7 +420,7 @@ app.get('/api/app/delivery_address', (req, res) => {
                 } else {
 
                     var auth_token = helper.createRequestToken();
-                    db.query("INSERT INTO `user_detail`( `username`, `email`, `password`,`mobile` ,`auth_token`, `dervice_token`, `created_date`, `modify_date`) VALUES (?,?,?, ?,?,?, NOW(), NOW())", [reqObj.username, reqObj.email, reqObj.password, reqObj.mobile, auth_token, reqObj.dervice_token], (err, result) => {
+                    db.query("INSERT INTO `user_detail`( `username`, `email`, `password`,`mobile` ,`auth_token`, `created_date`, `modify_date`) VALUES (?,?, ?,?,?, NOW(), NOW())", [reqObj.username, reqObj.email, reqObj.password, reqObj.mobile, auth_token], (err, result) => {
                         if (err) {
                             helper.ThrowHtmlError(err, res);
                             return
@@ -555,7 +555,7 @@ app.get('/api/app/delivery_address', (req, res) => {
                         let transporter = nodemailer.createTransport({
                             service: 'gmail', // or your email provider
                             auth: {
-                                user: 'masalaMagic', // replace with your email
+                                user: 'masalamagickhurai@gmail.com', // replace with your email
                                 pass: 'xnrpvnjnqqywyrqx'    // replace with your email password or app password
                             }
                         });
@@ -669,7 +669,7 @@ function checkAccessToken(headerObj, res, callback, require_type = "") {
     if (headerObj.hasOwnProperty('access_token')) {
         helper.Dlog(headerObj.access_token);
         helper.CheckParameterValid(res, headerObj, ["access_token"], () => {
-            db.query("SELECT `user_id`, `username`, `user_type`, `name`, `email`, `mobile`, `mobile_code`,  `auth_token`, `dervice_token`, `status` FROM `user_detail` WHERE `auth_token` = ? AND `status` = ? ", [headerObj.access_token, "1"], (err, result) => {
+            db.query("SELECT `user_id`, `username`, `user_type`, `name`, `email`, `mobile`, `mobile_code`,  `auth_token`,  `status` FROM `user_detail` WHERE `auth_token` = ? AND `status` = ? ", [headerObj.access_token, "1"], (err, result) => {
                 if (err) {
                     helper.ThrowHtmlError(err, res);
                     return
