@@ -15,7 +15,7 @@ var server = require('http').createServer(app);
 var io = require('socket.io')(server, {
   cors: {
     origin: "https://masalamagicui.onrender.com",
-    //  origin: "http://localhost:4200",
+     //origin: "http://localhost:4200",
     methods: ["GET", "POST"]
   }
 })
@@ -37,8 +37,7 @@ app.use('/', indexRouter);
 app.use('/users', usersRouter);
 
 // const corsOptions = {
-//   // origin: "http://localhost:4200",
-  
+//  origin: "http://localhost:4200",
 // }
   const corsOptions = {
         origin: 'https://masalamagicui.onrender.com' // Replace with your allowed origins
@@ -90,6 +89,10 @@ server.listen(serverPort);
 
 console.log("Server Start : " + serverPort );
 
+io.on('connection', (socket) => {
+  console.log('Admin connected:', socket.id);
+});
+
 Array.prototype.swap = (x, y) => {
   var b = this[x];
   this[x] = this[y];
@@ -109,3 +112,4 @@ String.prototype.replaceAll = (search, replacement) => {
   var target = this;
   return target.replace(new RegExp(search, 'g'), replacement);
 }
+

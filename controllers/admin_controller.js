@@ -13,11 +13,9 @@ module.exports.controller = (app, io, socket_list) => {
     const msg_product_added = "Product added Successfully.";
     const msg_product_update = "Product updated Successfully.";
     const msg_product_delete = "Product deleted Successfully.";
-    // ...existing code...
 
     module.exports.controller = (app, io, socket_list) => {
 
-        // Example: GET with access token
         app.get('/api/admin/getAllTotals/:user_id', (req, res) => {
             checkAccessToken(req.headers, res, (userObj) => {
                 var userid = req.params.user_id;
@@ -76,29 +74,6 @@ module.exports.controller = (app, io, socket_list) => {
             });
         });
     }
-
-    app.get('/api/admin/getAllTotals/:user_id', (req, res) => {
-        var userid = req.params.user_id;
-        db.query('SELECT count(*) as total  FROM  user_detail ', (err, result1) => {
-            db.query('SELECT count(*) as total  FROM user_order', (err, result2) => {
-                db.query('SELECT count(*) as total  FROM product_detail  ', (err, result3) => {
-                    if (err) throw err;
-                    var results = [];
-                    results.push({
-                        'Users': result1[0].total,
-                        'Orders': result2[0].total,
-                        'product_detail': result3[0].total,
-                    });
-                    res.json({
-                        status: true,
-                        data: results,
-                        message: 'Total'
-                    });
-                });
-
-            });
-        });
-    });
 
     app.get('/api/get_admin_profile/:user_id', (req, res) => {
         db.query('SELECT * FROM user_detail WHERE user_id=?', [req.params.user_id], (err, results) => {
@@ -183,14 +158,13 @@ module.exports.controller = (app, io, socket_list) => {
 
         // })
     })
-
     app.post('/api/admin/login', (req, res) => {
         helper.Dlog(req.body);
         var reqObj = req.body;
-        helper.CheckParameterValid(res, reqObj, ["email", "password", "dervice_token"], () => {
+        helper.CheckParameterValid(res, reqObj, ["email", "password"], () => {
 
             var authToken = helper.createRequestToken();
-            db.query("UPDATE `user_detail` SET `auth_token` = ?, `dervice_token` = ?, `modify_date` = NOW() WHERE `user_type` = ? AND `email` = ? AND `password` = ? AND `status` = ? ", [authToken, reqObj.dervice_token, "2", reqObj.email, reqObj.password, "1"], (err, result) => {
+            db.query("UPDATE `user_detail` SET `auth_token` = ?, `modify_date` = NOW() WHERE `user_type` = ? AND `email` = ? AND `password` = ? AND `status` = ? ", [authToken, "2", reqObj.email, reqObj.password, "1"], (err, result) => {
 
                 if (err) {
                     helper.ThrowHtmlError(err, res);
@@ -235,7 +209,6 @@ module.exports.controller = (app, io, socket_list) => {
 
     // ---------------------------------------------  Category_add  ----------------------------------------------------------------
     app.post("/api/admin/product_category_add", (req, res) => {
-        //aman
         var reqObj = req.body;
         checkAccessToken(req.headers, res, (uObj) => {
             helper.CheckParameterValid(res, reqObj, ["cat_name", "color"], () => {
@@ -322,19 +295,17 @@ module.exports.controller = (app, io, socket_list) => {
         })
     })
     app.get('/api/admin/userOrderlistAll', (req, res) => {
-        var reqObj = req.body;
-        console.log(reqObj)
-        db.query('SELECT * FROM  user_order  ORDER BY orders_id DESC  ', (err, result) => {
+        db.query('SELECT * FROM  user_order  ORDER BY orders_id DESC', (err, result) => {
             if (err) throw err;
             else {
                 res.json({
                     status: true,
-                    data: res.end(JSON.stringify(result)),
-                    message: 'Order placed '
-                })
+                    data: result, // <-- send result directly
+                    message: 'Order placed'
+                });
             }
-        })
-    })
+        });
+    });
     // ----------------------------------------------------Product_category_update-----------------------------------------------------
 
     app.post("/api/admin/product_category_update", (req, res) => {
@@ -799,7 +770,6 @@ module.exports.controller = (app, io, socket_list) => {
             }
         })
     })
-
     app.post('/api/addamount_khatabook', (req, res) => {
         var users = {
             "khatanum": req.body.khatanum,
@@ -830,7 +800,6 @@ module.exports.controller = (app, io, socket_list) => {
             }
         })
     })
-
     app.get('/api/khataamount_list/:khatanum', (req, res) => {
         db.query('SELECT * FROM khata_hisab WHERE khatanum=?', [req.params.khatanum], (err, results) => {
             if (!err) {
@@ -840,7 +809,6 @@ module.exports.controller = (app, io, socket_list) => {
             }
         });
     })
-
     app.delete('/api/delete_khatahisab/:id', (req, res) => {
         db.query('DELETE FROM khata_hisab WHERE khatanum=?', [req.params.id], (err) => {
             if (!err) {
@@ -892,14 +860,12 @@ module.exports.controller = (app, io, socket_list) => {
             res.end(JSON.stringify(results));
         });
     })
-
     app.get('api/getbill_byBill/:id', (req, res) => {
         db.query('SELECT * FROM book_bill WHERE  bill_id=?', [req.params.id], (err, results) => {
             if (err) throw err;
             res.end(JSON.stringify(results));
         });
     })
-
     app.get('api/today_bill_list/:id', (req, res) => {
         db.query('SELECT * FROM  book_bill  and  create_date =' + GETDATE() + ' ORDER BY bill_id DESC  ', (err, result) => {
             if (err) throw err;
@@ -1007,7 +973,6 @@ module.exports.controller = (app, io, socket_list) => {
             }
         })
     })
-
     app.put('/api/complete_order', (req, res) => {
         let bill_no = req.body.bill_no
         var data = {
@@ -1032,7 +997,6 @@ module.exports.controller = (app, io, socket_list) => {
             }
         })
     })
-
     app.delete('/api/delete_bill/:id', (req, res) => {
         db.query('DELETE FROM book_bill WHERE bill_id=?', [req.params.id], function (error, results, fields) {
             if (!error) {
@@ -1048,28 +1012,6 @@ module.exports.controller = (app, io, socket_list) => {
     })
 
     //-----------------------------------------------------Counter bills-------------------------------------------------------------------------
-
-    app.get('/api/getallcount', (req, res) => {
-        var userid = 1
-        db.query('SELECT count(*) as total  FROM  book_bill  where user_id = ' + userid + '', (err, result1) => {
-            db.query('SELECT count(*) as total  FROM contact_book	 where user_id = ' + userid + '', (err, result2) => {
-                db.query('SELECT count(*) as total  FROM restro_table  where user_id = ' + userid + '', (err, result3) => {
-                    if (err) throw err;
-                    var results = [];
-                    results.push({
-                        'billCount': result1[0].total,
-                        'customercount': result2[0].total,
-                    });
-                    res.json({
-                        status: true,
-                        data: results,
-                        message: 'Total'
-                    });
-                });
-
-            });
-        });
-    });
 
     app.post('/api/addbills', (req, res) => {
         const bill = req.body;
@@ -1176,14 +1118,12 @@ module.exports.controller = (app, io, socket_list) => {
             });
         });
     });
-
-
     // =========================================================================================================================================
 
     function checkAccessToken(headerObj, res, callback, require_type = "") {
         helper.Dlog(headerObj.access_token);
         helper.CheckParameterValid(res, headerObj, ["access_token"], () => {
-            db.query("SELECT `user_id`, `username`, `user_type`, `name`, `email`, `mobile`, `mobile_code`,  `auth_token`, `dervice_token`, `status` FROM `user_detail` WHERE `auth_token` = ? AND `status` = ? ", [headerObj.access_token, "1"], (err, result) => {
+            db.query("SELECT `user_id`, `username`, `user_type`, `name`, `email`, `mobile`, `mobile_code`,  `auth_token`,  `status` FROM `user_detail` WHERE `auth_token` = ? AND `status` = ? ", [headerObj.access_token, "1"], (err, result) => {
                 if (err) {
                     helper.ThrowHtmlError(err, res);
                     return

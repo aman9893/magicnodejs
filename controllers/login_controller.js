@@ -256,29 +256,29 @@ module.exports.controller = (app, io, socket_list) => {
         })
     })
 
-app.get('/api/app/delivery_address', (req, res) => {
-    helper.Dlog(req.body);
-    checkAccessToken(req.headers, res, (userObj) => {
-        db.query(
-            `SELECT ad.*, ud.name AS user_name, ud.mobile AS user_mobile
+    app.get('/api/app/delivery_address', (req, res) => {
+        helper.Dlog(req.body);
+        checkAccessToken(req.headers, res, (userObj) => {
+            db.query(
+                `SELECT ad.*, ud.name AS user_name, ud.mobile AS user_mobile
              FROM address_detail ad
              JOIN user_detail ud ON ad.user_id = ud.user_id
              WHERE ad.user_id = ? AND ad.status = 1`,
-            [userObj.user_id],
-            (err, result) => {
-                if (err) {
-                    helper.ThrowHtmlError(err, res);
-                    return;
+                [userObj.user_id],
+                (err, result) => {
+                    if (err) {
+                        helper.ThrowHtmlError(err, res);
+                        return;
+                    }
+                    res.json({
+                        "status": 1,
+                        "payload": result,
+                        "message": msg_success
+                    });
                 }
-                res.json({
-                    "status": 1,
-                    "payload": result,
-                    "message": msg_success
-                });
-            }
-        );
+            );
+        });
     });
-});
     // ------------------------------------------order-------------------------------------------------------------------------------
 
     app.post('/api/app/userAddorder', (req, res) => {
@@ -308,10 +308,369 @@ app.get('/api/app/delivery_address', (req, res) => {
                     "payload": result,
                     "message": ordermsg_success
                 })
-            })
-        })
-    })
+                var orders = [];
+                io.to('user_' + userObj.user_id).emit('order_update', {
+                    message: 'Order placed',
+                    order: result
+                });
+                const order = { id: Date.now(), ...req.body };
+                orders.push(order);
+                io.emit('new_order', order);
+            });
 
+            app.post('/api/app/userOrderlist', (req, res) => {
+                var reqObj = req.body;
+                checkAccessToken(req.headers, res, (userObj) => {
+                    db.query('SELECT * FROM  user_order WHERE user_id = ' + userObj.user_id + ' ORDER BY created_date DESC', (err, result) => {
+                        if (err) {
+                            helper.ThrowHtmlError(err, res);
+                            return
+                        }
+                        res.json({
+                            status: 1,
+                            "payload": result,
+                            "message": msg_success
+                        })
+                        // io.to('user_' + userObj.user_id).emit('order_update', { message: 'Order placed', order: result });
+                    })
+                })
+            })
+
+            app.post('/api/app/userLastOrderlist', (req, res) => {
+                var reqObj = req.body;
+                checkAccessToken(req.headers, res, (userObj) => {
+                    db.query('SELECT * FROM  user_order WHERE user_id = ' + userObj.user_id + ' AND order_status = 1 OR order_status = 2 OR order_status = 3  ORDER BY orders_id DESC  LIMIT 1', (err, result) => {
+                        if (err) {
+                            helper.ThrowHtmlError(err, res);
+                            return
+                        }
+                        res.json({
+                            status: 1,
+                            "payload": result,
+                            "message": msg_success
+                        })
+                    })
+                })
+            })
+
+            app.post('/api/app/userOrderlistDetialsById', (req, res) => {
+                var reqObj = req.body;
+                checkAccessToken(req.headers, res, (userObj) => {
+                    db.query("SELECT * FROM `user_order` AS `od` " +
+                        "INNER JOIN `address_detail` AS `ad` ON  `od`.`user_id` = `ad`.`user_id` " +
+                        "INNER JOIN `user_detail` AS `user` ON  `user`.`user_id` = `od`.`user_id` " +
+                        "LEFT JOIN `rider` AS `odt` ON `odt`.`rider_id` = `od`.`rider_id` " +
+                        "WHERE `od`.`orders_id` = ? GROUP BY `od`.`orders_id` ", [reqObj.orderid], (err, result) => {
+                            console.log(result)
+                            if (err) throw err;
+                            else {
+                                res.json({ status: "1", payload: result[0], "message": msg_success })
+                            }
+                        })
+                })
+            })
+
+            /////////////////////////////////User passward reset login ///////////////////////////////////////
+
+            app.post('/api/app/login', (req, res) => {
+                helper.Dlog(req.body);
+                var reqObj = req.body;
+
+                helper.CheckParameterValid(res, reqObj, ["email", "password"], () => {
+                    var auth_token = helper.createRequestToken();
+                    db.query("UPDATE `user_detail` SET `auth_token`= ?,`modify_date`= NOW() WHERE `user_type` = ? AND `email` = ? AND `password` = ? AND `status` = ?", [auth_token, "1", reqObj.email, reqObj.password, "1"], (err, result) => {
+
+                        if (err) {
+                            helper.ThrowHtmlError(err, res);
+                            return
+                        }
+
+                        if (result.affectedRows > 0) {
+
+
+                            db.query('SELECT `user_id`, `username`, `name`, `email`, `mobile`, `mobile_code`,`auth_token`, `status`, `created_date` FROM `user_detail` WHERE `email` = ? AND `password` = ? AND `status` = "1" ', [reqObj.email, reqObj.password], (err, result) => {
+
+                                if (err) {
+                                    helper.ThrowHtmlError(err, res);
+                                    return
+                                }
+
+                                if (result.length > 0) {
+                                    res.json({ "status": "1", "payload": result[0], "message": msg_success })
+                                } else {
+                                    res.json({ "status": "0", "message": msg_invalidUser })
+                                }
+                            })
+                        } else {
+                            res.json({ "status": "0", "message": msg_invalidUser })
+                        }
+
+                    })
+                })
+            })
+
+            app.post('/api/app/sign_up', (req, res) => {
+                helper.Dlog(req.body);
+                var reqObj = req.body;
+
+                helper.CheckParameterValid(res, reqObj, ["username", "email", "password", "mobile"], () => {
+
+                    db.query('SELECT `user_id`, `status` FROM `user_detail` WHERE `email` = ? ', [reqObj.email], (err, result) => {
+
+                        if (err) {
+                            helper.ThrowHtmlError(err, res);
+                            return
+                        }
+
+                        if (result.length > 0) {
+                            res.json({ "status": "1", "payload": result[0], "message": msg_already_register })
+                        } else {
+
+                            var auth_token = helper.createRequestToken();
+                            db.query("INSERT INTO `user_detail`( `username`, `email`, `password`,`mobile` ,`auth_token`, `created_date`, `modify_date`) VALUES (?,?, ?,?,?, NOW(), NOW())", [reqObj.username, reqObj.email, reqObj.password, reqObj.mobile, auth_token], (err, result) => {
+                                if (err) {
+                                    helper.ThrowHtmlError(err, res);
+                                    return
+                                }
+
+                                if (result) {
+                                    db.query('SELECT `user_id`, `username`, `name`, `email`, `mobile`, `mobile_code`, `password`, `auth_token`, `status`, `created_date`  FROM `user_detail` WHERE `user_id` = ? AND `status` = "1" ', [result.insertId], (err, result) => {
+
+                                        if (err) {
+                                            helper.ThrowHtmlError(err, res);
+                                            return
+                                        }
+
+                                        if (result.length > 0) {
+                                            res.json({ "status": "1", "payload": result[0], "message": msg_success })
+                                        } else {
+                                            res.json({ "status": "0", "message": msg_invalidUser })
+                                        }
+                                    })
+                                } else {
+                                    res.json({ "status": "0", "message": msg_fail })
+                                }
+                            })
+
+                        }
+                    })
+                })
+            })
+
+            app.post('/api/app/userprofile', (req, res) => {
+                helper.Dlog(req.body)
+                checkAccessToken(req.headers, res, (userObj) => {
+                    db.query('SELECT * FROM user_detail WHERE user_id =?', [userObj.user_id], (err, result) => {
+                        console.log(result)
+                        if (err) {
+                            helper.ThrowHtmlError(err, res);
+                            return
+                        }
+                        res.json({
+                            "status": "1",
+                            "payload": result,
+                            "message": msg_success
+                        })
+
+                    })
+                }, '1')
+            })
+
+            app.post('/api/app/update_profile', (req, res) => {
+                helper.Dlog(req.body);
+                var reqObj = req.body
+                checkAccessToken(req.headers, res, (userObj) => {
+                    helper.CheckParameterValid(res, reqObj, ["username", "name", "mobile", "mobile_code", 'email'], () => {
+                        db.query("UPDATE `user_detail` SET `username`=?,`name`=?,`mobile`=?,`mobile_code`=?, `email`=?, `modify_date`=NOW() WHERE `user_id` = ? AND `status` = 1", [reqObj.username, reqObj.name, reqObj.mobile, reqObj.mobile_code, reqObj.email, userObj.user_id], (err, result) => {
+                            if (err) {
+                                helper.ThrowHtmlError(err, res)
+                                return
+                            }
+
+                            if (result.affectedRows > 0) {
+                                db.query('SELECT `user_id`, `username`, `name`, `email`, `mobile`, `mobile_code`, `password`, `auth_token`, `status`, `created_date` FROM `user_detail` WHERE `user_id` = ? AND `status` = "1" ', [userObj.user_id], (err, result) => {
+
+                                    if (err) {
+                                        helper.ThrowHtmlError(err, res);
+                                        return
+                                    }
+
+                                    if (result.length > 0) {
+                                        res.json({ "status": "1", "payload": result[0], "message": msg_success })
+                                    } else {
+                                        res.json({ "status": "0", "message": msg_invalidUser })
+                                    }
+                                })
+                            } else {
+                                res.json({
+                                    "status": "0",
+                                    "message": msg_fail
+                                })
+                            }
+                        })
+                    })
+
+                })
+            })
+
+            app.post('/api/app/change_password', (req, res) => {
+                helper.Dlog(req.body);
+                var reqObj = req.body
+                checkAccessToken(req.headers, res, (userObj) => {
+                    helper.CheckParameterValid(res, reqObj, ["current_password", "new_password"], () => {
+                        db.query("UPDATE `user_detail` SET `password`=?, `modify_date`=NOW() WHERE `user_id` = ? AND `password` = ?", [reqObj.new_password, userObj.user_id, reqObj.current_password], (err, result) => {
+                            if (err) {
+                                helper.ThrowHtmlError(err, res)
+                                return
+                            }
+
+                            if (result.affectedRows > 0) {
+                                res.json({ "status": "1", "message": msg_success })
+                            } else {
+                                res.json({
+                                    "status": "0",
+                                    "message": msg_fail
+                                })
+                            }
+                        })
+                    })
+
+                }, "1")
+            })
+
+            app.post('/api/app/forgot_password_request', (req, res) => {
+                helper.Dlog(req.body);
+                var reqObj = req.body
+
+                helper.CheckParameterValid(res, reqObj, ["email"], () => {
+                    db.query("SELECT `user_id` FROM `user_detail` WHERE `email` = ? ", [reqObj.email], (err, result) => {
+                        if (err) {
+                            helper.ThrowHtmlError(err, res)
+                            return
+                        }
+
+                        if (result.length > 0) {
+                            var reset_code = helper.createNumber()
+                            db.query("UPDATE `user_detail` SET `reset_code` = ? WHERE `user_id` = ? ", [reset_code, result[0].user_id], (err, uResult) => {
+                                if (err) {
+                                    helper.ThrowHtmlError(err, res)
+                                    return
+                                }
+
+                                if (uResult.affectedRows > 0) {
+                                    // Send reset code email
+                                    let transporter = nodemailer.createTransport({
+                                        service: 'gmail', // or your email provider
+                                        auth: {
+                                            user: 'masalamagickhurai@gmail.com', // replace with your email
+                                            pass: 'xnrpvnjnqqywyrqx'    // replace with your email password or app password
+                                        }
+                                    });
+
+                                    let mailOptions = {
+                                        from: 'masalamagickhurai@gmail.com',
+                                        to: reqObj.email,
+                                        subject: 'Password Reset Code',
+                                        text: `Your password reset code is: ${reset_code}`
+                                    };
+
+                                    transporter.sendMail(mailOptions, function (error, info) {
+                                        if (error) {
+                                            console.log(error);
+                                            res.json({ "status": "0", "message": "Failed to send email" });
+                                        } else {
+                                            res.json({ "status": "1", "message": msg_success });
+                                        }
+                                    });
+                                } else {
+                                    res.json({
+                                        "status": "0",
+                                        "message": msg_fail
+                                    })
+                                }
+                            })
+
+                        } else {
+                            res.json({
+                                "status": "0",
+                                "message": "user not exits"
+                            })
+                        }
+                    })
+                })
+            })
+
+            app.post('/api/app/forgot_password_verify', (req, res) => {
+                helper.Dlog(req.body);
+                var reqObj = req.body
+
+                helper.CheckParameterValid(res, reqObj, ["email", "reset_code"], () => {
+                    db.query("SELECT `user_id` FROM `user_detail` WHERE `email` = ? AND `reset_code` ", [reqObj.email, reqObj.reset_code], (err, result) => {
+                        if (err) {
+                            helper.ThrowHtmlError(err, res)
+                            return
+                        }
+
+                        if (result.length > 0) {
+                            var reset_code = helper.createNumber()
+                            db.query("UPDATE `user_detail` SET `reset_code` = ? WHERE `user_id` = ? ", [reset_code, result[0].user_id], (err, uResult) => {
+                                if (err) {
+                                    helper.ThrowHtmlError(err, res)
+                                    return
+                                }
+
+
+                                if (uResult.affectedRows > 0) {
+                                    res.json({ "status": "1", "payload": { "user_id": result[0].user_id, "reset_code": reset_code }, "message": msg_success })
+                                } else {
+                                    res.json({
+                                        "status": "0",
+                                        "message": msg_fail
+                                    })
+                                }
+                            })
+
+                        } else {
+                            res.json({
+                                "status": "0",
+                                "message": "user not exits"
+                            })
+                        }
+                    })
+                })
+
+
+            })
+            app.post('/api/app/forgot_password_set_password', (req, res) => {
+                helper.Dlog(req.body);
+                var reqObj = req.body
+
+                helper.CheckParameterValid(res, reqObj, ["user_id", "reset_code", "new_password"], () => {
+
+                    var reset_code = helper.createNumber()
+                    db.query("UPDATE `user_detail` SET `password` = ? , `reset_code` = ?  WHERE `user_id` = ? AND `reset_code` = ? ", [reqObj.new_password, reset_code, reqObj.user_id, reqObj.reset_code], (err, uResult) => {
+                        if (err) {
+                            helper.ThrowHtmlError(err, res)
+                            return
+                        }
+
+
+                        if (uResult.affectedRows > 0) {
+                            res.json({ "status": "1", "message": "update password successfully" })
+                        } else {
+                            res.json({
+                                "status": "0",
+                                "message": msg_fail
+                            })
+                        }
+                    })
+                })
+
+
+            })
+
+        });
+    })
     app.post('/api/app/userOrderlist', (req, res) => {
         var reqObj = req.body;
         checkAccessToken(req.headers, res, (userObj) => {
@@ -531,67 +890,67 @@ app.get('/api/app/delivery_address', (req, res) => {
         }, "1")
     })
 
- app.post('/api/app/forgot_password_request', (req, res) => {
-    helper.Dlog(req.body);
-    var reqObj = req.body
+    app.post('/api/app/forgot_password_request', (req, res) => {
+        helper.Dlog(req.body);
+        var reqObj = req.body
 
-    helper.CheckParameterValid(res, reqObj, ["email"], () => {
-        db.query("SELECT `user_id` FROM `user_detail` WHERE `email` = ? ", [reqObj.email], (err, result) => {
-            if (err) {
-                helper.ThrowHtmlError(err, res)
-                return
-            }
+        helper.CheckParameterValid(res, reqObj, ["email"], () => {
+            db.query("SELECT `user_id` FROM `user_detail` WHERE `email` = ? ", [reqObj.email], (err, result) => {
+                if (err) {
+                    helper.ThrowHtmlError(err, res)
+                    return
+                }
 
-            if (result.length > 0) {
-                var reset_code = helper.createNumber()
-                db.query("UPDATE `user_detail` SET `reset_code` = ? WHERE `user_id` = ? ", [reset_code, result[0].user_id], (err, uResult) => {
-                    if (err) {
-                        helper.ThrowHtmlError(err, res)
-                        return
-                    }
+                if (result.length > 0) {
+                    var reset_code = helper.createNumber()
+                    db.query("UPDATE `user_detail` SET `reset_code` = ? WHERE `user_id` = ? ", [reset_code, result[0].user_id], (err, uResult) => {
+                        if (err) {
+                            helper.ThrowHtmlError(err, res)
+                            return
+                        }
 
-                    if (uResult.affectedRows > 0) {
-                        // Send reset code email
-                        let transporter = nodemailer.createTransport({
-                            service: 'gmail', // or your email provider
-                            auth: {
-                                user: 'masalamagickhurai@gmail.com', // replace with your email
-                                pass: 'xnrpvnjnqqywyrqx'    // replace with your email password or app password
-                            }
-                        });
+                        if (uResult.affectedRows > 0) {
+                            // Send reset code email
+                            let transporter = nodemailer.createTransport({
+                                service: 'gmail', // or your email provider
+                                auth: {
+                                    user: 'masalamagickhurai@gmail.com', // replace with your email
+                                    pass: 'xnrpvnjnqqywyrqx'    // replace with your email password or app password
+                                }
+                            });
 
-                        let mailOptions = {
-                            from: 'masalamagickhurai@gmail.com',
-                            to: reqObj.email,
-                            subject: 'Password Reset Code',
-                            text: `Your password reset code is: ${reset_code}`
-                        };
+                            let mailOptions = {
+                                from: 'masalamagickhurai@gmail.com',
+                                to: reqObj.email,
+                                subject: 'Password Reset Code',
+                                text: `Your password reset code is: ${reset_code}`
+                            };
 
-                        transporter.sendMail(mailOptions, function(error, info){
-                            if (error) {
-                                console.log(error);
-                                res.json({ "status": "0", "message": "Failed to send email" });
-                            } else {
-                                res.json({ "status": "1", "message": msg_success });
-                            }
-                        });
-                    } else {
-                        res.json({
-                            "status": "0",
-                            "message": msg_fail
-                        })
-                    }
-                })
+                            transporter.sendMail(mailOptions, function (error, info) {
+                                if (error) {
+                                    console.log(error);
+                                    res.json({ "status": "0", "message": "Failed to send email" });
+                                } else {
+                                    res.json({ "status": "1", "message": msg_success });
+                                }
+                            });
+                        } else {
+                            res.json({
+                                "status": "0",
+                                "message": msg_fail
+                            })
+                        }
+                    })
 
-            } else {
-                res.json({
-                    "status": "0",
-                    "message": "user not exits"
-                })
-            }
+                } else {
+                    res.json({
+                        "status": "0",
+                        "message": "user not exits"
+                    })
+                }
+            })
         })
     })
-})
 
     app.post('/api/app/forgot_password_verify', (req, res) => {
         helper.Dlog(req.body);
