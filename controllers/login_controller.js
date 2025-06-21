@@ -297,7 +297,12 @@ module.exports.controller = (app, io, socket_list) => {
                 "tax": req.body.tax,
                 "payment_type": req.body.payment_type,
                 "rider_id": req.body.rider_id || 0,
+                "user_name": req.body.user_name,
+                "user_email": req.body.user_email,
+                "user_phone": req.body.user_phone,
+
             }
+            console.log(data)
             db.query('INSERT INTO  user_order SET ?', data, function (err, result) {
                 if (err) {
                     helper.ThrowHtmlError(err, res);
@@ -353,22 +358,7 @@ module.exports.controller = (app, io, socket_list) => {
                 })
             })
 
-            app.post('/api/app/userOrderlistDetialsById', (req, res) => {
-                var reqObj = req.body;
-                checkAccessToken(req.headers, res, (userObj) => {
-                    db.query("SELECT * FROM `user_order` AS `od` " +
-                        "INNER JOIN `address_detail` AS `ad` ON  `od`.`user_id` = `ad`.`user_id` " +
-                        "INNER JOIN `user_detail` AS `user` ON  `user`.`user_id` = `od`.`user_id` " +
-                        "LEFT JOIN `rider` AS `odt` ON `odt`.`rider_id` = `od`.`rider_id` " +
-                        "WHERE `od`.`orders_id` = ? GROUP BY `od`.`orders_id` ", [reqObj.orderid], (err, result) => {
-                            console.log(result)
-                            if (err) throw err;
-                            else {
-                                res.json({ status: "1", payload: result[0], "message": msg_success })
-                            }
-                        })
-                })
-            })
+
 
             /////////////////////////////////User passward reset login ///////////////////////////////////////
 
@@ -706,22 +696,25 @@ module.exports.controller = (app, io, socket_list) => {
     })
 
     app.post('/api/app/userOrderlistDetialsById', (req, res) => {
-        var reqObj = req.body;
-        checkAccessToken(req.headers, res, (userObj) => {
-            db.query("SELECT * FROM `user_order` AS `od` " +
-                "INNER JOIN `address_detail` AS `ad` ON  `od`.`user_id` = `ad`.`user_id` " +
-                "INNER JOIN `user_detail` AS `user` ON  `user`.`user_id` = `od`.`user_id` " +
-                "LEFT JOIN `rider` AS `odt` ON `odt`.`rider_id` = `od`.`rider_id` " +
-                "WHERE `od`.`orders_id` = ? GROUP BY `od`.`orders_id` ", [reqObj.orderid], (err, result) => {
-                    console.log(result)
-                    if (err) throw err;
-                    else {
-                        res.json({ status: "1", payload: result[0], "message": msg_success })
-                    }
-                })
-        })
-    })
-
+        const reqObj = req.body;
+    db.query(
+    "SELECT od.*, ad.*, " +
+    "rider_user.name AS rider_name, rider_user.mobile AS rider_mobile " +
+    "FROM `user_order` AS `od` " +
+    "INNER JOIN `address_detail` AS `ad` ON od.user_id = ad.user_id " +
+    "LEFT JOIN `user_detail` AS rider_user ON rider_user.user_id = od.rider_id " +
+    "WHERE od.orders_id = ?",
+    [reqObj.orderid],
+    (err, result) => {
+        if (err) return helper.ThrowHtmlError(err, res);
+        if (result && result.length > 0) {
+            res.json({ status: "1", payload: result[0], message: msg_success });
+        } else {
+            res.json({ status: "0", payload: null, message: "No data found" });
+        }
+    }
+);
+    });
     /////////////////////////////////User passward reset login ///////////////////////////////////////
 
     app.post('/api/app/login', (req, res) => {
@@ -763,51 +756,54 @@ module.exports.controller = (app, io, socket_list) => {
 
     app.post('/api/app/sign_up', (req, res) => {
         helper.Dlog(req.body);
-        var reqObj = req.body;
+        const reqObj = req.body;
 
         helper.CheckParameterValid(res, reqObj, ["username", "email", "password", "mobile"], () => {
+            db.query(
+                'SELECT `user_id`, `status` FROM `user_detail` WHERE `email` = ?',
+                [reqObj.email],
+                (err, result) => {
+                    if (err) return helper.ThrowHtmlError(err, res);
 
-            db.query('SELECT `user_id`, `status` FROM `user_detail` WHERE `email` = ? ', [reqObj.email], (err, result) => {
+                    if (result.length > 0) {
+                        return res.json({ status: "1", payload: result[0], message: msg_already_register });
+                    }
 
-                if (err) {
-                    helper.ThrowHtmlError(err, res);
-                    return
-                }
+                    const auth_token = helper.createRequestToken();
+                    db.query(
+                        "INSERT INTO `user_detail` (`username`, `email`, `password`, `mobile`, `auth_token`, `user_type`, `mobile_code`, `area_id`, `created_date`, `modify_date`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+                        [
+                            reqObj.username,
+                            reqObj.email,
+                            reqObj.password,
+                            reqObj.mobile,
+                            auth_token,
+                            1,
+                            '', // mobile_code blank
+                            ''  // area_id blank
+                        ],
+                        (err, insertResult) => {
+                            if (err) return helper.ThrowHtmlError(err, res);
 
-                if (result.length > 0) {
-                    res.json({ "status": "1", "payload": result[0], "message": msg_already_register })
-                } else {
+                            db.query(
+                                'SELECT `user_id`, `username`, `name`, `email`, `mobile`, `mobile_code`, `password`, `auth_token`, `user_type`, `mobile_code`, `area_id`, `status`, `created_date` FROM `user_detail` WHERE `user_id` = ?',
+                                [insertResult.insertId],
+                                (err, userResult) => {
+                                    if (err) return helper.ThrowHtmlError(err, res);
 
-                    var auth_token = helper.createRequestToken();
-                    db.query("INSERT INTO `user_detail`( `username`, `email`, `password`,`mobile` ,`auth_token`, `created_date`, `modify_date`) VALUES (?,?, ?,?,?, NOW(), NOW())", [reqObj.username, reqObj.email, reqObj.password, reqObj.mobile, auth_token], (err, result) => {
-                        if (err) {
-                            helper.ThrowHtmlError(err, res);
-                            return
-                        }
-
-                        if (result) {
-                            db.query('SELECT `user_id`, `username`, `name`, `email`, `mobile`, `mobile_code`, `password`, `auth_token`, `status`, `created_date`  FROM `user_detail` WHERE `user_id` = ? AND `status` = "1" ', [result.insertId], (err, result) => {
-
-                                if (err) {
-                                    helper.ThrowHtmlError(err, res);
-                                    return
+                                    if (userResult.length > 0) {
+                                        res.json({ status: "1", payload: userResult[0], message: msg_success });
+                                    } else {
+                                        res.json({ status: "0", message: msg_invalidUser });
+                                    }
                                 }
-
-                                if (result.length > 0) {
-                                    res.json({ "status": "1", "payload": result[0], "message": msg_success })
-                                } else {
-                                    res.json({ "status": "0", "message": msg_invalidUser })
-                                }
-                            })
-                        } else {
-                            res.json({ "status": "0", "message": msg_fail })
+                            );
                         }
-                    })
-
+                    );
                 }
-            })
-        })
-    })
+            );
+        });
+    });
 
     app.post('/api/app/userprofile', (req, res) => {
         helper.Dlog(req.body)
@@ -1022,6 +1018,7 @@ module.exports.controller = (app, io, socket_list) => {
     })
 
 }
+
 
 function checkAccessToken(headerObj, res, callback, require_type = "") {
 
