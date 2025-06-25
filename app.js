@@ -14,8 +14,8 @@ var app = express();
 var server = require('http').createServer(app);
 var io = require('socket.io')(server, {
   cors: {
-    //origin: "https://masalacrunch.com",
-    origin: "http://localhost:4200",
+    origin: "https://masalacrunch.com",
+   //  origin: "http://localhost:4200",
     methods: ["GET", "POST"]
   }
 })
@@ -36,12 +36,12 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/', indexRouter);
 app.use('/users', usersRouter);
 
-const corsOptions = {
- origin: "http://localhost:4200",
-}
-  // const corsOptions = {
-  //       origin: 'https://masalacrunch.com' // Replace with your allowed origins
-  //   };
+// const corsOptions = {
+//  origin: "http://localhost:4200",
+// }
+  const corsOptions = {
+        origin: 'https://masalacrunch.com' // Replace with your allowed origins
+    };
 
 //     const corsOpts = {
 //   origin: '*',
