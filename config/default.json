@@ -1,6 +1,6 @@
 {
 
-    "dbConfig": {
+    "dbConfig1": {
         "host":"localhost",
         "user":"root",
         "password":"",
@@ -9,7 +9,7 @@
         "charset":"utf8mb4"
     },
 
-   "dbConfig1": {
+   "dbConfig": {
     "host": "admin.cqtg6qq86m8d.us-east-1.rds.amazonaws.com",
     "user": "root",
     "password": "Khurai#12345",
