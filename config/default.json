@@ -6,17 +6,16 @@
         "password":"",
         "database":"sabjiwala",
         "multipleStatements": true,
-        "timezone":"utc+5:30",
         "charset":"utf8mb4"
     },
 
-     "dbConfig2": {
-        "host":"bn4gpxknm8veaeekzrnn-mysql.services.clever-cloud.com",
-        "user":"utbocl6f4grfgukr",
-        "password":"tp6buOst1NSVK7ao6s1i",
-        "database":"bn4gpxknm8veaeekzrnn",
-        "multipleStatements": true,
-        "timezone":"utc+5:30",
-        "charset":"utf8mb4"
-    }
+   "dbConfig1": {
+    "host": "admin.cqtg6qq86m8d.us-east-1.rds.amazonaws.com",
+    "user": "root",
+    "password": "Khurai#12345",
+    "database": "magic",
+    "multipleStatements": true,
+   "timezone":"utc+5:30",
+    "charset": "utf8mb4"
+}
 }

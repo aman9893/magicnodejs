@@ -14,8 +14,8 @@ var app = express();
 var server = require('http').createServer(app);
 var io = require('socket.io')(server, {
   cors: {
-    origin: "https://masalamagicui.onrender.com",
-     //origin: "http://localhost:4200",
+    origin: "https://masalacrunch.com",
+   //  origin: "http://localhost:4200",
     methods: ["GET", "POST"]
   }
 })
@@ -40,7 +40,7 @@ app.use('/users', usersRouter);
 //  origin: "http://localhost:4200",
 // }
   const corsOptions = {
-        origin: 'https://masalamagicui.onrender.com' // Replace with your allowed origins
+        origin: 'https://masalacrunch.com' // Replace with your allowed origins
     };
 
 //     const corsOpts = {
@@ -86,8 +86,6 @@ app.use(function (err, req, res, next) {
 module.exports = app;
 
 server.listen(serverPort);
-
-console.log("Server Start : " + serverPort );
 
 io.on('connection', (socket) => {
   console.log('Admin connected:', socket.id);
